@@ -31,10 +31,10 @@ window.addEventListener('message', (event) => {
 });
 
 // 2. Отправляем промпт на наш бэкенд
-async function sendPromptToBackend(prompt) {
+sync function sendPromptToBackend(prompt, originalParentOrigin) {
     try {
-        // Замените '/api/generate' на ваш реальный endpoint бэкенда
-        const response = await fetch('/api/generate', {
+        // ИЗМЕНЕН URL ЗДЕСЬ:
+        const response = await fetch('/.netlify/functions/generate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -43,20 +43,28 @@ async function sendPromptToBackend(prompt) {
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `Ошибка сервера: ${response.status}`);
+            // Попытка прочитать тело ошибки как текст, затем как JSON
+            const errorText = await response.text();
+            updateStatus(`Ошибка сервера: ${response.status}. Ответ: ${errorText}`);
+            console.error("Ошибка сервера:", response.status, errorText);
+            try {
+                const errorData = JSON.parse(errorText); // Если ошибка вернула JSON
+                throw new Error(errorData.error || `Ошибка сервера: ${response.status}`);
+            } catch (e) { // Если ошибка не JSON (например, HTML 404 страницы)
+                throw new Error(`Ошибка сервера: ${response.status}. Получен не JSON ответ.`);
+            }
         }
 
         const data = await response.json();
         updateStatus('Ответ от бэкенда получен.');
-        updateResponsePreview(data.generatedText); // Показать в отладочном div
-        sendResponseToStoryline(data.generatedText);
+        if (responsePreviewDiv && data.generatedText) responsePreviewDiv.textContent = "AI: " + data.generatedText;
+        sendResponseToStoryline(data.generatedText, originalParentOrigin);
 
     } catch (error) {
         updateStatus(`Ошибка при запросе к бэкенду: ${error.message}`);
         console.error("Ошибка при запросе к бэкенду:", error);
-        // Можно отправить сообщение об ошибке обратно в Storyline
-        sendResponseToStoryline(`Ошибка: ${error.message}`);
+        if (responsePreviewDiv) responsePreviewDiv.textContent = "Ошибка: " + error.message;
+        sendResponseToStoryline(`Ошибка: ${error.message}`, originalParentOrigin);
     }
 }
 
