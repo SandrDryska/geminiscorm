@@ -31,7 +31,7 @@ window.addEventListener('message', (event) => {
 });
 
 // 2. Отправляем промпт на наш бэкенд
-sync function sendPromptToBackend(prompt, originalParentOrigin) {
+async function sendPromptToBackend(prompt, originalParentOrigin) {
     try {
         // ИЗМЕНЕН URL ЗДЕСЬ:
         const response = await fetch('/.netlify/functions/generate', {
